@@ -588,7 +588,7 @@ msgstr ""
 #: superset/views/core.py:239 superset/views/core.py:353
 #: superset/views/core.py:449 superset/views/core.py:513
 msgid "Creator"
-msgstr "作者"
+msgstr "创建者"
 
 #: superset/views/core.py:241
 msgid "SQLAlchemy URI"
@@ -704,7 +704,7 @@ msgstr "切片"
 
 #: superset/views/core.py:450 superset/views/core.py:514
 msgid "Modified"
-msgstr "已修改"
+msgstr "修改时间"
 
 #: superset/views/core.py:451
 msgid "Position JSON"
