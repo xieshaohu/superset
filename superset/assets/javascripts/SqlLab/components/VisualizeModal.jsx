@@ -1,4 +1,5 @@
 /* global notify */
+import moment from 'moment';
 import React from 'react';
 import PropTypes from 'prop-types';
 import { bindActionCreators } from 'redux';
@@ -10,6 +11,8 @@ import { Table } from 'reactable';
 import shortid from 'shortid';
 import { getExploreUrl } from '../../explore/exploreUtils';
 import * as actions from '../actions';
+import { VISUALIZE_VALIDATION_ERRORS } from '../constants';
+import { QUERY_TIMEOUT_THRESHOLD } from '../../constants';
 
 const CHART_TYPES = [
   { value: 'dist_bar', label: 'Distribution - Bar Chart', requiresTime: false },
@@ -49,7 +52,7 @@ class VisualizeModal extends React.PureComponent {
     this.setStateFromProps(nextProps);
   }
   setStateFromProps(props) {
-    if (
+    if (!props ||
         !props.query ||
         !props.query.results ||
         !props.query.results.columns) {
@@ -87,7 +90,7 @@ class VisualizeModal extends React.PureComponent {
       }
     });
     if (this.state.chartType === null) {
-      hints.push('Pick a chart type!');
+      hints.push(VISUALIZE_VALIDATION_ERRORS.REQUIRE_CHART_TYPE);
     } else if (this.state.chartType.requiresTime) {
       let hasTime = false;
       for (const colName in cols) {
@@ -97,9 +100,7 @@ class VisualizeModal extends React.PureComponent {
         }
       }
       if (!hasTime) {
-        hints.push(
-          'To use this chart type you need at least one column ' +
-          'flagged as a date');
+        hints.push(VISUALIZE_VALIDATION_ERRORS.REQUIRE_TIME);
       }
     }
     this.setState({ hints });
@@ -118,16 +119,33 @@ class VisualizeModal extends React.PureComponent {
     }
     return columns;
   }
-  visualize() {
-    const vizOptions = {
+  buildVizOptions() {
+    return {
       chartType: this.state.chartType.value,
       datasourceName: this.state.datasourceName,
       columns: this.state.columns,
       sql: this.props.query.sql,
       dbId: this.props.query.dbId,
     };
-
-    this.props.actions.createDatasource(vizOptions, this)
+  }
+  buildVisualizeAdvise() {
+    let advise;
+    const queryDuration = moment.duration(this.props.query.endDttm - this.props.query.startDttm);
+    if (Math.round(queryDuration.asMilliseconds()) > QUERY_TIMEOUT_THRESHOLD) {
+      advise = (
+        <Alert bsStyle="warning">
+          This query took {Math.round(queryDuration.asSeconds())} seconds to run,
+          and the explore view times out at {QUERY_TIMEOUT_THRESHOLD / 1000} seconds,
+          following this flow will most likely lead to your query timing out.
+          We recommend your summarize your data further before following that flow.
+          If activated you can use the <strong>CREATE TABLE AS</strong> feature
+          to store a summarized data set that you can then explore.
+        </Alert>);
+    }
+    return advise;
+  }
+  visualize() {
+    this.props.actions.createDatasource(this.buildVizOptions(), this)
       .done(() => {
         const columns = Object.keys(this.state.columns).map(k => this.state.columns[k]);
         const mainMetric = columns.filter(d => d.agg)[0];
@@ -224,6 +242,7 @@ class VisualizeModal extends React.PureComponent {
           </Modal.Header>
           <Modal.Body>
             {alerts}
+            {this.buildVisualizeAdvise()}
             <div className="row">
               <Col md={6}>
                 Chart Type

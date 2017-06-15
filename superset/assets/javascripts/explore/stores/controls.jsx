@@ -1,7 +1,8 @@
 import React from 'react';
 import { formatSelectOptionsForRange, formatSelectOptions } from '../../modules/utils';
-import visTypes from './visTypes';
 import * as v from '../validators';
+import MetricOption from '../../components/MetricOption';
+import ColumnOption from '../../components/ColumnOption';
 
 const D3_FORMAT_DOCS = 'D3 format syntax: https://github.com/d3/d3-format';
 
@@ -18,6 +19,7 @@ const D3_TIME_FORMAT_OPTIONS = [
 const ROW_LIMIT_OPTIONS = [10, 50, 100, 250, 500, 1000, 5000, 10000, 50000];
 
 const SERIES_LIMITS = [0, 5, 10, 25, 50, 100, 500];
+
 
 export const TIME_STAMP_OPTIONS = [
   ['smart_date', 'Adaptative formating'],
@@ -48,15 +50,9 @@ export const controls = {
   },
 
   viz_type: {
-    type: 'SelectControl',
+    type: 'VizTypeControl',
     label: 'Visualization Type',
-    clearable: false,
     default: 'table',
-    choices: Object.keys(visTypes).map(vt => [
-      vt,
-      visTypes[vt].label,
-      `/static/assets/images/viz_thumbnails/${vt}.png`,
-    ]),
     description: 'The type of visualization to display',
   },
 
@@ -65,14 +61,27 @@ export const controls = {
     multi: true,
     label: 'Metrics',
     validators: [v.nonEmpty],
+    valueKey: 'metric_name',
+    optionRenderer: m => <MetricOption metric={m} />,
+    valueRenderer: m => <MetricOption metric={m} />,
     default: control =>
       control.choices && control.choices.length > 0 ? [control.choices[0][0]] : null,
     mapStateToProps: state => ({
-      choices: (state.datasource) ? state.datasource.metrics_combo : [],
+      options: (state.datasource) ? state.datasource.metrics : [],
     }),
     description: 'One or many metrics to display',
   },
-
+  y_axis_bounds: {
+    type: 'BoundsControl',
+    label: 'Y Axis Bounds',
+    default: [null, null],
+    description: (
+      'Bounds for the Y axis. When left empty, the bounds are ' +
+      'dynamically defined based on the min/max of the data. Note that ' +
+      "this feature will only expand the axis range. It won't " +
+      "narrow the data's extent."
+    ),
+  },
   order_by_cols: {
     type: 'SelectControl',
     multi: true,
@@ -89,21 +98,29 @@ export const controls = {
     label: 'Metric',
     clearable: false,
     description: 'Choose the metric',
+    validators: [v.nonEmpty],
+    optionRenderer: m => <MetricOption metric={m} />,
+    valueRenderer: m => <MetricOption metric={m} />,
+    valueKey: 'metric_name',
     default: control =>
       control.choices && control.choices.length > 0 ? control.choices[0][0] : null,
     mapStateToProps: state => ({
-      choices: (state.datasource) ? state.datasource.metrics_combo : null,
+      options: (state.datasource) ? state.datasource.metrics : [],
     }),
   },
 
   metric_2: {
     type: 'SelectControl',
     label: 'Right Axis Metric',
-    choices: [],
-    default: [],
+    default: null,
+    validators: [v.nonEmpty],
+    clearable: true,
     description: 'Choose a metric for right axis',
+    valueKey: 'metric_name',
+    optionRenderer: m => <MetricOption metric={m} />,
+    valueRenderer: m => <MetricOption metric={m} />,
     mapStateToProps: state => ({
-      choices: (state.datasource) ? state.datasource.metrics_combo : [],
+      options: (state.datasource) ? state.datasource.metrics : [],
     }),
   },
 
@@ -308,8 +325,11 @@ export const controls = {
     label: 'Group by',
     default: [],
     description: 'One or many controls to group by',
+    optionRenderer: c => <ColumnOption column={c} />,
+    valueRenderer: c => <ColumnOption column={c} />,
+    valueKey: 'column_name',
     mapStateToProps: state => ({
-      choices: (state.datasource) ? state.datasource.gb_cols : [],
+      options: (state.datasource) ? state.datasource.columns : [],
     }),
   },
 
@@ -647,10 +667,14 @@ export const controls = {
   x: {
     type: 'SelectControl',
     label: 'X Axis',
-    default: null,
     description: 'Metric assigned to the [X] axis',
+    default: null,
+    validators: [v.nonEmpty],
+    optionRenderer: m => <MetricOption metric={m} />,
+    valueRenderer: m => <MetricOption metric={m} />,
+    valueKey: 'metric_name',
     mapStateToProps: state => ({
-      choices: (state.datasource) ? state.datasource.metrics_combo : [],
+      options: (state.datasource) ? state.datasource.metrics : [],
     }),
   },
 
@@ -659,8 +683,12 @@ export const controls = {
     label: 'Y Axis',
     default: null,
     description: 'Metric assigned to the [Y] axis',
+    validators: [v.nonEmpty],
+    optionRenderer: m => <MetricOption metric={m} />,
+    valueRenderer: m => <MetricOption metric={m} />,
+    valueKey: 'metric_name',
     mapStateToProps: state => ({
-      choices: (state.datasource) ? state.datasource.metrics_combo : [],
+      options: (state.datasource) ? state.datasource.metrics : [],
     }),
   },
 
@@ -668,8 +696,12 @@ export const controls = {
     type: 'SelectControl',
     label: 'Bubble Size',
     default: null,
+    validators: [v.nonEmpty],
+    optionRenderer: m => <MetricOption metric={m} />,
+    valueRenderer: m => <MetricOption metric={m} />,
+    valueKey: 'metric_name',
     mapStateToProps: state => ({
-      choices: (state.datasource) ? state.datasource.metrics_combo : [],
+      options: (state.datasource) ? state.datasource.metrics : [],
     }),
   },
 
@@ -758,7 +790,7 @@ export const controls = {
   x_axis_format: {
     type: 'SelectControl',
     freeForm: true,
-    label: 'X axis format',
+    label: 'X Axis Format',
     renderTrigger: true,
     default: 'smart_date',
     choices: TIME_STAMP_OPTIONS,
@@ -768,7 +800,7 @@ export const controls = {
   y_axis_format: {
     type: 'SelectControl',
     freeForm: true,
-    label: 'Y axis format',
+    label: 'Y Axis Format',
     renderTrigger: true,
     default: '.3s',
     choices: D3_TIME_FORMAT_OPTIONS,
@@ -778,7 +810,7 @@ export const controls = {
   y_axis_2_format: {
     type: 'SelectControl',
     freeForm: true,
-    label: 'Right axis format',
+    label: 'Right Axis Format',
     default: '.3s',
     choices: D3_TIME_FORMAT_OPTIONS,
     description: D3_FORMAT_DOCS,
@@ -942,14 +974,6 @@ export const controls = {
     default: true,
     description: 'The rich tooltip shows a list of all series for that ' +
     'point in time',
-  },
-
-  y_axis_zero: {
-    type: 'CheckboxControl',
-    label: 'Y Axis Zero',
-    default: false,
-    renderTrigger: true,
-    description: 'Force the Y axis to start at 0 instead of the minimum value',
   },
 
   y_log_scale: {

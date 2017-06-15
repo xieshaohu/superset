@@ -15,6 +15,10 @@ const propTypes = {
   onChange: PropTypes.func,
   value: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.array]),
   showHeader: PropTypes.bool,
+  optionRenderer: PropTypes.func,
+  valueRenderer: PropTypes.func,
+  valueKey: PropTypes.string,
+  options: PropTypes.array,
 };
 
 const defaultProps = {
@@ -27,6 +31,9 @@ const defaultProps = {
   multi: false,
   onChange: () => {},
   showHeader: true,
+  optionRenderer: opt => opt.label,
+  valueRenderer: opt => opt.label,
+  valueKey: 'value',
 };
 
 export default class SelectControl extends React.PureComponent {
@@ -34,7 +41,6 @@ export default class SelectControl extends React.PureComponent {
     super(props);
     this.state = { options: this.getOptions(props) };
     this.onChange = this.onChange.bind(this);
-    this.renderOption = this.renderOption.bind(this);
   }
   componentWillReceiveProps(nextProps) {
     if (nextProps.choices !== this.props.choices) {
@@ -43,14 +49,17 @@ export default class SelectControl extends React.PureComponent {
     }
   }
   onChange(opt) {
-    let optionValue = opt ? opt.value : null;
+    let optionValue = opt ? opt[this.props.valueKey] : null;
     // if multi, return options values as an array
     if (this.props.multi) {
-      optionValue = opt ? opt.map(o => o.value) : null;
+      optionValue = opt ? opt.map(o => o[this.props.valueKey]) : null;
     }
     this.props.onChange(optionValue);
   }
   getOptions(props) {
+    if (props.options) {
+      return props.options;
+    }
     // Accepts different formats of input
     const options = props.choices.map((c) => {
       let option;
@@ -60,7 +69,6 @@ export default class SelectControl extends React.PureComponent {
           value: c[0],
           label,
         };
-        if (c[2]) option.imgSrc = c[2];
       } else if (Object.is(c)) {
         option = c;
       } else {
@@ -88,17 +96,6 @@ export default class SelectControl extends React.PureComponent {
     }
     return options;
   }
-  renderOption(opt) {
-    if (opt.imgSrc) {
-      return (
-        <div>
-          <img className="viz-thumb-option" src={opt.imgSrc} alt={opt.value} />
-          <span>{opt.label}</span>
-        </div>
-      );
-    }
-    return opt.label;
-  }
   render() {
     //  Tab, comma or Enter will trigger a new option created for FreeFormSelect
     const selectProps = {
@@ -107,11 +104,13 @@ export default class SelectControl extends React.PureComponent {
       placeholder: `Select (${this.state.options.length})`,
       options: this.state.options,
       value: this.props.value,
+      valueKey: this.props.valueKey,
       autosize: false,
       clearable: this.props.clearable,
       isLoading: this.props.isLoading,
       onChange: this.onChange,
-      optionRenderer: this.renderOption,
+      optionRenderer: this.props.optionRenderer,
+      valueRenderer: this.props.valueRenderer,
     };
     //  Tab, comma or Enter will trigger a new option created for FreeFormSelect
     const selectWrap = this.props.freeForm ?

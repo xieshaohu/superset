@@ -7,6 +7,8 @@ import HiddenControl from './controls/HiddenControl';
 import SelectControl from './controls/SelectControl';
 import TextAreaControl from './controls/TextAreaControl';
 import TextControl from './controls/TextControl';
+import VizTypeControl from './controls/VizTypeControl';
+import BoundsControl from './controls/BoundsControl';
 
 const controlMap = {
   CheckboxControl,
@@ -15,6 +17,8 @@ const controlMap = {
   SelectControl,
   TextAreaControl,
   TextControl,
+  VizTypeControl,
+  BoundsControl,
 };
 const controlTypes = Object.keys(controlMap);
 
