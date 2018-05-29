@@ -166,6 +166,7 @@ the world know they are using Superset. Join our growing community!
  - [Maieutical Labs](https://cloudschooling.it)
  - [PeopleDoc](https://www.people-doc.com)
  - [Ona](https://ona.io)
+ - [OVIT](http://www.cnovit.com/)
  - [Pronto Tools](http://www.prontotools.io)
  - [Qunar](https://www.qunar.com/)
  - [ScopeAI](https://www.getscopeai.com)
