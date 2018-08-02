@@ -6,7 +6,7 @@ import { describe, it } from 'mocha';
 import { expect } from 'chai';
 import sinon from 'sinon';
 
-import QuerySearch from '../../../javascripts/SqlLab/components/QuerySearch';
+import QuerySearch from '../../../src/SqlLab/components/QuerySearch';
 
 describe('QuerySearch', () => {
   const mockedProps = {
@@ -59,9 +59,10 @@ describe('QuerySearch', () => {
   });
 
   it('refreshes queries when clicked', () => {
-    const spy = sinon.spy(QuerySearch.prototype, 'refreshQueries');
+    const search = sinon.spy(QuerySearch.prototype, 'refreshQueries');
     wrapper = shallow(<QuerySearch {...mockedProps} />);
     wrapper.find(Button).simulate('click');
-    expect(spy.called).to.equal(true);
+    /* eslint-disable no-unused-expressions */
+    expect(search.called).to.equal(true);
   });
 });
