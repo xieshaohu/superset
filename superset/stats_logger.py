@@ -1,3 +1,14 @@
+# -*- coding: utf-8 -*-
+# pylint: disable=C,R,W
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import logging
+
+from colorama import Fore, Style
+
 
 class BaseStatsLogger(object):
     """Base class for logging realtime events"""
@@ -24,15 +35,19 @@ class BaseStatsLogger(object):
 
 
 class DummyStatsLogger(BaseStatsLogger):
-
     def incr(self, key):
-        pass
+        logging.debug(
+            Fore.CYAN + '[stats_logger] (incr) ' + key + Style.RESET_ALL)
 
     def decr(self, key):
-        pass
+        logging.debug((
+            Fore.CYAN + '[stats_logger] (decr) ' + key +
+            Style.RESET_ALL))
 
-    def gauge(self, key):
-        pass
+    def gauge(self, key, value):
+        logging.debug((
+            Fore.CYAN + '[stats_logger] (gauge) '
+            '{key} | {value}' + Style.RESET_ALL).format(**locals()))
 
 
 try:
@@ -40,10 +55,7 @@ try:
 
     class StatsdStatsLogger(BaseStatsLogger):
         def __init__(self, host, port, prefix='superset'):
-            self.client = StatsClient(
-                  host=host,
-                  port=port,
-                  prefix=prefix)
+            self.client = StatsClient(host=host, port=port, prefix=prefix)
 
         def incr(self, key):
             self.client.incr(key)

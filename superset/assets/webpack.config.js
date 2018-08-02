@@ -1,7 +1,7 @@
-const webpack = require('webpack');
 const path = require('path');
-const ManifestPlugin = require('webpack-manifest-plugin');
 const CleanWebpackPlugin = require('clean-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const WebpackAssetsManifest = require('webpack-assets-manifest');
 
 // input dir
 const APP_DIR = path.resolve(__dirname, './');
@@ -9,65 +9,64 @@ const APP_DIR = path.resolve(__dirname, './');
 // output dir
 const BUILD_DIR = path.resolve(__dirname, './dist');
 
+const isDevMode = process.env.NODE_ENV !== 'production';
+
 const config = {
+  node: {
+    fs: 'empty',
+  },
   entry: {
-    'css-theme': APP_DIR + '/javascripts/css-theme.js',
-    common: APP_DIR + '/javascripts/common.js',
-    addSlice: ['babel-polyfill', APP_DIR + '/javascripts/addSlice/index.jsx'],
-    dashboard: ['babel-polyfill', APP_DIR + '/javascripts/dashboard/Dashboard.jsx'],
-    explore: ['babel-polyfill', APP_DIR + '/javascripts/explore/index.jsx'],
-    sqllab: ['babel-polyfill', APP_DIR + '/javascripts/SqlLab/index.jsx'],
-    welcome: ['babel-polyfill', APP_DIR + '/javascripts/welcome.js'],
-    profile: ['babel-polyfill', APP_DIR + '/javascripts/profile/index.jsx'],
+    theme: APP_DIR + '/src/theme.js',
+    common: APP_DIR + '/src/common.js',
+    addSlice: ['babel-polyfill', APP_DIR + '/src/addSlice/index.jsx'],
+    explore: ['babel-polyfill', APP_DIR + '/src/explore/index.jsx'],
+    dashboard: ['babel-polyfill', APP_DIR + '/src/dashboard/index.jsx'],
+    sqllab: ['babel-polyfill', APP_DIR + '/src/SqlLab/index.jsx'],
+    welcome: ['babel-polyfill', APP_DIR + '/src/welcome/index.jsx'],
+    profile: ['babel-polyfill', APP_DIR + '/src/profile/index.jsx'],
   },
   output: {
     path: BUILD_DIR,
+    publicPath: '/static/assets/dist/', // necessary for lazy-loaded chunks
     filename: '[name].[chunkhash].entry.js',
-    chunkFilename: '[name].[chunkhash].entry.js',
+    chunkFilename: '[name].[chunkhash].chunk.js',
+  },
+  optimization: {
+    splitChunks: {
+      chunks: 'all',
+      automaticNameDelimiter: '-',
+    },
   },
   resolve: {
-    extensions: [
-      '.js',
-      '.jsx',
-    ],
-    alias: {
-      webworkify: 'webworkify-webpack',
-      'mapbox-gl/js/geo/transform': path.join(
-        __dirname, '/node_modules/mapbox-gl/js/geo/transform'),
-      'mapbox-gl': path.join(__dirname, '/node_modules/mapbox-gl/dist/mapbox-gl.js'),
-    },
-
+    extensions: ['.js', '.jsx'],
   },
   module: {
-    noParse: /mapbox-gl\/dist/,
-    loaders: [
+    // uglyfying mapbox-gl results in undefined errors, see
+    // https://github.com/mapbox/mapbox-gl-js/issues/4359#issuecomment-288001933
+    noParse: /(mapbox-gl)\.js$/,
+    rules: [
       {
         test: /datatables\.net.*/,
         loader: 'imports-loader?define=>false',
       },
       {
         test: /\.jsx?$/,
-        exclude: APP_DIR + '/node_modules',
-        loader: 'babel-loader',
-        query: {
-          presets: [
-            'airbnb',
-            'es2015',
-            'react',
-          ],
-        },
-      },
-      /* for react-map-gl overlays */
-      {
-        test: /\.react\.js$/,
-        include: APP_DIR + '/node_modules/react-map-gl/src/overlays',
+        exclude: /node_modules/,
         loader: 'babel-loader',
       },
-      /* for require('*.css') */
       {
         test: /\.css$/,
         include: APP_DIR,
-        loader: 'style-loader!css-loader',
+        use: [isDevMode ? MiniCssExtractPlugin.loader : 'style-loader', 'css-loader'],
+      },
+      {
+        test: /\.less$/,
+        include: APP_DIR,
+        use: [
+          isDevMode ? MiniCssExtractPlugin.loader : 'style-loader',
+          'css-loader',
+          'less-loader',
+        ],
       },
       /* for css linking images */
       {
@@ -91,22 +90,6 @@ const config = {
         test: /\.(ttf|eot|svg)(\?v=[0-9]\.[0-9]\.[0-9])?$/,
         loader: 'file-loader',
       },
-      /* for require('*.less') */
-      {
-        test: /\.less$/,
-        include: APP_DIR,
-        loader: 'style-loader!css-loader!less-loader',
-      },
-      /* for mapbox */
-      {
-        test: /\.json$/,
-        loader: 'json-loader',
-      },
-      {
-        test: /\.js$/,
-        include: APP_DIR + '/node_modules/mapbox-gl/js/render/painter/use_program.js',
-        loader: 'transform/cacheable?brfs',
-      },
     ],
   },
   externals: {
@@ -115,16 +98,21 @@ const config = {
     'react/lib/ReactContext': true,
   },
   plugins: [
-    new ManifestPlugin(),
+    // creates a manifest.json mapping of name to hashed output used in template files
+    new WebpackAssetsManifest({
+      publicPath: true,
+      entrypoints: true, // this enables us to include all relevant files for an entry
+    }),
+
+    // create fresh dist/ upon build
     new CleanWebpackPlugin(['dist']),
-    new webpack.DefinePlugin({
-      'process.env': {
-        NODE_ENV: JSON.stringify(process.env.NODE_ENV),
-      },
+
+    // text loading (webpack 4+)
+    new MiniCssExtractPlugin({
+      filename: '[name].[chunkhash].entry.css',
+      chunkFilename: '[name].[chunkhash].chunk.css',
     }),
   ],
 };
-if (process.env.NODE_ENV === 'production') {
-  config.plugins.push(new webpack.optimize.UglifyJsPlugin());
-}
+
 module.exports = config;

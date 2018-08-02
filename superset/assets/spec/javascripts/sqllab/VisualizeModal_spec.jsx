@@ -11,21 +11,23 @@ import sinon from 'sinon';
 import $ from 'jquery';
 import shortid from 'shortid';
 import { queries } from './fixtures';
-import { sqlLabReducer } from '../../../javascripts/SqlLab/reducers';
-import * as actions from '../../../javascripts/SqlLab/actions';
-import { VISUALIZE_VALIDATION_ERRORS } from '../../../javascripts/SqlLab/constants';
-import VisualizeModal from '../../../javascripts/SqlLab/components/VisualizeModal';
-import * as exploreUtils from '../../../javascripts/explore/exploreUtils';
-
-global.notify = {
-  info: () => {},
-  error: () => {},
-};
+import { sqlLabReducer } from '../../../src/SqlLab/reducers';
+import * as actions from '../../../src/SqlLab/actions';
+import { VISUALIZE_VALIDATION_ERRORS } from '../../../src/SqlLab/constants';
+import VisualizeModal from '../../../src/SqlLab/components/VisualizeModal';
+import * as exploreUtils from '../../../src/explore/exploreUtils';
 
 describe('VisualizeModal', () => {
   const middlewares = [thunk];
   const mockStore = configureStore(middlewares);
-  const initialState = sqlLabReducer(undefined, {});
+  const initialState = {
+    sqlLab: {
+      ...sqlLabReducer(undefined, {}),
+      common: {
+        conf: { SUPERSET_WEBSERVER_TIMEOUT: 45 },
+      },
+    },
+  };
   const store = mockStore(initialState);
   const mockedProps = {
     show: true,
@@ -78,19 +80,44 @@ describe('VisualizeModal', () => {
     expect(wrapper.find(Modal)).to.have.length(1);
   });
 
-  describe('setStateFromProps', () => {
-    const wrapper = getVisualizeModalWrapper();
-    const sampleQuery = queries[0];
-
-    it('should require valid props parameters', () => {
-      const spy = sinon.spy(wrapper.instance(), 'setState');
-      wrapper.instance().setStateFromProps();
-      expect(spy.callCount).to.equal(0);
-      spy.restore();
+  describe('getColumnFromProps', () => {
+    it('should require valid query parameter in props', () => {
+      const emptyQuery = {
+        show: true,
+        query: {},
+      };
+      const wrapper = shallow(<VisualizeModal {...emptyQuery} />, {
+        context: { store },
+      }).dive();
+      expect(wrapper.state().columns).to.deep.equal({});
     });
     it('should set columns state', () => {
-      wrapper.instance().setStateFromProps({ query: sampleQuery });
+      const wrapper = getVisualizeModalWrapper();
       expect(wrapper.state().columns).to.deep.equal(mockColumns);
+    });
+    it('should not change columns state when closing Modal', () => {
+      const wrapper = getVisualizeModalWrapper();
+      expect(wrapper.state().columns).to.deep.equal(mockColumns);
+
+      // first change columns state
+      const newColumns = {
+        ds: {
+          is_date: true,
+          is_dim: false,
+          name: 'ds',
+          type: 'STRING',
+        },
+        name: {
+          is_date: false,
+          is_dim: true,
+          name: 'name',
+          type: 'STRING',
+        },
+      };
+      wrapper.instance().setState({ columns: newColumns });
+      // then close Modal
+      wrapper.setProps({ show: false });
+      expect(wrapper.state().columns).to.deep.equal(newColumns);
     });
   });
 
@@ -241,13 +268,15 @@ describe('VisualizeModal', () => {
       chartType: wrapper.state().chartType.value,
       datasourceName: wrapper.state().datasourceName,
       columns: wrapper.state().columns,
+      schema: 'test_schema',
       sql: wrapper.instance().props.query.sql,
       dbId: wrapper.instance().props.query.dbId,
+      templateParams: wrapper.instance().props.templateParams,
     });
   });
 
   it('should build visualize advise for long query', () => {
-    const longQuery = Object.assign({}, queries[0], { endDttm: 1476910666798 });
+    const longQuery = { ...queries[0], endDttm: 1476910666798 };
     const props = {
       show: true,
       query: longQuery,
@@ -280,17 +309,17 @@ describe('VisualizeModal', () => {
     beforeEach(() => {
       ajaxSpy = sinon.spy($, 'ajax');
       sinon.stub(JSON, 'parse').callsFake(() => ({ table_id: 107 }));
-      sinon.stub(exploreUtils, 'getExploreUrl').callsFake(() => ('mockURL'));
+      sinon.stub(exploreUtils, 'getExploreUrlAndPayload').callsFake(() => ({ url: 'mockURL', payload: { datasource: '107__table' } }));
+      sinon.spy(exploreUtils, 'exportChart');
       sinon.stub(wrapper.instance(), 'buildVizOptions').callsFake(() => (mockOptions));
-      sinon.spy(window, 'open');
       datasourceSpy = sinon.stub(actions, 'createDatasource');
     });
     afterEach(() => {
       ajaxSpy.restore();
       JSON.parse.restore();
-      exploreUtils.getExploreUrl.restore();
+      exploreUtils.getExploreUrlAndPayload.restore();
+      exploreUtils.exportChart.restore();
       wrapper.instance().buildVizOptions.restore();
-      window.open.restore();
       datasourceSpy.restore();
     });
 
@@ -304,28 +333,46 @@ describe('VisualizeModal', () => {
       expect(spyCall.args[0].data.data).to.equal(JSON.stringify(mockOptions));
     });
     it('should open new window', () => {
+      const infoToastSpy = sinon.spy();
+
       datasourceSpy.callsFake(() => {
         const d = $.Deferred();
         d.resolve('done');
         return d.promise();
       });
-      wrapper.setProps({ actions: { createDatasource: datasourceSpy } });
+
+      wrapper.setProps({
+        actions: {
+          createDatasource: datasourceSpy,
+          addInfoToast: infoToastSpy,
+        },
+      });
 
       wrapper.instance().visualize();
-      expect(window.open.callCount).to.equal(1);
+      expect(exploreUtils.exportChart.callCount).to.equal(1);
+      expect(exploreUtils.exportChart.getCall(0).args[0].datasource).to.equal('107__table');
+      expect(infoToastSpy.callCount).to.equal(1);
     });
-    it('should notify error', () => {
+    it('should add error toast', () => {
+      const dangerToastSpy = sinon.spy();
+
       datasourceSpy.callsFake(() => {
         const d = $.Deferred();
         d.reject('error message');
         return d.promise();
       });
-      wrapper.setProps({ actions: { createDatasource: datasourceSpy } });
-      sinon.spy(notify, 'error');
+
+
+      wrapper.setProps({
+        actions: {
+          createDatasource: datasourceSpy,
+          addDangerToast: dangerToastSpy,
+        },
+      });
 
       wrapper.instance().visualize();
-      expect(window.open.callCount).to.equal(0);
-      expect(notify.error.callCount).to.equal(1);
+      expect(exploreUtils.exportChart.callCount).to.equal(0);
+      expect(dangerToastSpy.callCount).to.equal(1);
     });
   });
 });
